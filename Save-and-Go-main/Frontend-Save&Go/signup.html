@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In - Save & Go</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    body { background-color: #0f172a; color: #ffffff; font-family: 'Lexend', sans-serif; }
+    .auth-card { background-color: #1e293b; border: 1px solid #334155; border-radius: 15px; }
+    .input-field { background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; padding: 10px 15px; width: 100%; outline: none; font-family: 'Lexend'; }
+    .input-field:focus { border-color: #1eb1c1; }
+    .label-text { color: #94a3b8; font-size: 14px; margin-bottom: 5px; display: block; }
+    .btn-primary { background-color: #1eb1c1; color: #0f172a; font-weight: 700; transition: 0.3s; }
+    .btn-primary:hover { background-color: #1598a7; }
+    .text-link { color: #1eb1c1; font-weight: 600; }
+    .role-selector { display: flex; gap: 10px; margin-top: 5px; }
+    .role-btn { flex: 1; padding: 12px; border: 2px solid #334155; border-radius: 8px; background: #0f172a; color: #94a3b8; font-family: 'Lexend'; font-weight: 600; cursor: pointer; transition: 0.2s; text-align: center; }
+    .role-btn.selected { border-color: #1eb1c1; color: #1eb1c1; background: #0f2a2e; }
+    .error-msg { background: #7f1d1d; border: 1px solid #ef4444; color: #fca5a5; padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none; margin-bottom: 10px; }
+    .info-msg { background: #1e3a5f; border: 1px solid #1eb1c1; color: #7dd3fc; padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none; margin-bottom: 10px; }
+    .btn-primary:disabled { background-color: #334155; color: #94a3b8; cursor: not-allowed; }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+
+    <div class="w-full max-w-md auth-card p-8 shadow-2xl">
+
+        <!-- LOGIN FORM -->
+        <div id="login-form-panel">
+            <h1 class="text-3xl font-bold mb-2">Welcome Back</h1>
+            <p class="text-slate-400 text-sm mb-2">Log in to continue your journey</p>
+            <p class="text-slate-300 text-sm mb-6">Signing in as: <span id="role-display" style="color:#1eb1c1; font-weight:700; text-transform:capitalize;"></span></p>
+            <div id="login-error" class="error-msg"></div>
+            <div class="space-y-5">
+                <div>
+                    <label class="label-text">Email</label>
+                    <input type="email" id="login-email" placeholder="name@example.com" class="input-field">
+                </div>
+                <div>
+                    <label class="label-text">Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••" class="input-field">
+                </div>
+                <button id="login-btn" onclick="login()" class="block w-full py-3 rounded-xl btn-primary text-center">Sign In</button>
+                <p class="text-center text-sm text-slate-400 mt-6">
+                    Don't have an account? <button onclick="showSignup()" class="text-link hover:underline">Sign Up</button>
+                </p>
+            </div>
+        </div>
+
+        <!-- SIGNUP FORM -->
+        <div id="signup-form-panel" class="hidden">
+            <h1 class="text-3xl font-bold mb-2">Create Account</h1>
+            <p class="text-slate-400 text-sm mb-6">Start your journey today</p>
+            <div id="signup-error" class="error-msg"></div>
+            <div id="signup-info" class="info-msg"></div>
+            <div class="space-y-4">
+                <div>
+                    <label class="label-text">Full Name</label>
+                    <input type="text" id="signup-name" placeholder="John Doe" class="input-field">
+                </div>
+                <div>
+                    <label class="label-text">I am a...</label>
+                    <div class="role-selector">
+                        <div class="role-btn" id="role-rider" onclick="selectRole('rider')">Rider</div>
+                        <div class="role-btn" id="role-driver" onclick="selectRole('driver')">Driver</div>
+                    </div>
+                </div>
+                <div>
+                    <label class="label-text">User Type</label>
+                    <select id="signup-type" class="input-field">
+                        <option>Student</option>
+                        <option>Senior</option>
+                        <option>Regular Commuter</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="label-text">Email Address</label>
+                    <input type="email" id="signup-email" placeholder="name@example.com" class="input-field">
+                </div>
+                <div>
+                    <label class="label-text">Phone Number</label>
+                    <input type="tel" id="signup-phone" placeholder="+1 (___) ___-____" class="input-field">
+                </div>
+                <div>
+                    <label class="label-text">Password</label>
+                    <input type="password" id="signup-password" placeholder="Create password" class="input-field">
+                </div>
+                <button id="signup-btn" onclick="signup()" class="block w-full py-3 rounded-xl btn-primary text-center">Create Account</button>
+                <p class="text-center text-sm text-slate-400 mt-6">
+                    Already have an account? <button onclick="showLogin()" class="text-link hover:underline">Sign In</button>
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const db = createClient(
+            'https://bpoglbqzttnuywtqlxiu.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwb2dsYnF6dHRudXl3dHFseGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ2MTEsImV4cCI6MjA4OTI5MDYxMX0.2hUJLe9hd_hM34ww1bWumEddfEjzFG3fh2zxlv0xg-Y'
+        );
+
+        let selectedRole = '';
+        const urlRole = new URLSearchParams(window.location.search).get('role') || 'rider';
+
+        // Show role label on login form
+        document.getElementById('role-display').innerText = urlRole;
+
+        // Pre-select role and show correct form
+        selectRole(urlRole);
+        if (new URLSearchParams(window.location.search).get('role')) {
+            showSignup();
+        }
+
+        function selectRole(role) {
+            selectedRole = role;
+            document.getElementById('role-rider').classList.remove('selected');
+            document.getElementById('role-driver').classList.remove('selected');
+            document.getElementById('role-' + role).classList.add('selected');
+        }
+
+        function showSignup() {
+            document.getElementById('login-form-panel').classList.add('hidden');
+            document.getElementById('signup-form-panel').classList.remove('hidden');
+        }
+
+        function showLogin() {
+            document.getElementById('signup-form-panel').classList.add('hidden');
+            document.getElementById('login-form-panel').classList.remove('hidden');
+            clearMessages();
+        }
+
+        function showError(id, msg) {
+            const el = document.getElementById(id);
+            el.innerText = msg;
+            el.style.display = 'block';
+        }
+
+        function showInfo(id, msg) {
+            const el = document.getElementById(id);
+            el.innerText = msg;
+            el.style.display = 'block';
+        }
+
+        function clearMessages() {
+            ['login-error', 'signup-error', 'signup-info'].forEach(id => {
+                const el = document.getElementById(id);
+                el.style.display = 'none';
+                el.innerText = '';
+            });
+        }
+
+        function setLoading(btnId, loading, defaultText) {
+            const btn = document.getElementById(btnId);
+            btn.disabled = loading;
+            btn.innerText = loading ? 'Please wait...' : defaultText;
+        }
+
+        async function login() {
+            clearMessages();
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const intendedRole = urlRole;
+
+            if (!email || !password) {
+                showError('login-error', 'Please enter your email and password.');
+                return;
+            }
+
+            setLoading('login-btn', true, 'Sign In');
+
+            const { data, error } = await db.auth.signInWithPassword({ email, password });
+
+            if (error) {
+                showError('login-error', error.message);
+                setLoading('login-btn', false, 'Sign In');
+                return;
+            }
+
+            const userId = data.user.id;
+
+            // Check if user has a driver record
+            const { data: driverData } = await db
+                .from('drivers')
+                .select('driver_id')
+                .eq('user_id', userId)
+                .single();
+
+            const isDriver = !!driverData;
+
+            // If they want driver access but have no driver record, block
+            if (intendedRole === 'driver' && !isDriver) {
+                await db.auth.signOut();
+                showError('login-error', 'This account does not have a driver profile. Please sign up as a driver first.');
+                setLoading('login-btn', false, 'Sign In');
+                return;
+            }
+
+            // Redirect based on intended role
+            window.location.href = intendedRole === 'driver' ? 'driver.html' : 'rider.html';
+        }
+
+        async function signup() {
+            clearMessages();
+
+            const name = document.getElementById('signup-name').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const phone = document.getElementById('signup-phone').value.trim();
+            const password = document.getElementById('signup-password').value;
+            const userType = document.getElementById('signup-type').value;
+
+            if (!name || !email || !phone || !password) {
+                showError('signup-error', 'Please fill in all fields.');
+                return;
+            }
+            if (password.length < 6) {
+                showError('signup-error', 'Password must be at least 6 characters.');
+                return;
+            }
+            if (!selectedRole) {
+                showError('signup-error', 'Please select Rider or Driver.');
+                return;
+            }
+
+            setLoading('signup-btn', true, 'Create Account');
+
+            // Attempt to create a new account
+            const { data, error } = await db.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { full_name: name, phone, user_type: userType, role: selectedRole }
+                }
+            });
+
+            // If account already exists, try logging in and adding the new role
+            if (error) {
+                if (error.message.toLowerCase().includes('already registered') ||
+                    error.message.toLowerCase().includes('already been registered') ||
+                    error.message.toLowerCase().includes('user already registered')) {
+
+                    const { data: loginData, error: loginError } = await db.auth.signInWithPassword({ email, password });
+
+                    if (loginError) {
+                        showError('signup-error', 'An account with this email already exists. Please sign in instead.');
+                        setLoading('signup-btn', false, 'Create Account');
+                        return;
+                    }
+
+                    const userId = loginData.user.id;
+
+                    if (selectedRole === 'driver') {
+                        // Check if they already have a driver record
+                        const { data: existingDriver } = await db
+                            .from('drivers')
+                            .select('driver_id')
+                            .eq('user_id', userId)
+                            .single();
+
+                        if (!existingDriver) {
+                            // Create a new driver record for their existing account
+                            await db.from('drivers').insert({
+                                user_id: userId,
+                                name: name,
+                                status: 'inactive',
+                                rating: 5.0,
+                                seats_available: 4,
+                                price: 0
+                            });
+                            showInfo('signup-info', 'Driver profile added to your account. Redirecting...');
+                            setTimeout(() => window.location.href = 'driver-setup.html', 1500);
+                        } else {
+                            showInfo('signup-info', 'You already have a driver account. Redirecting...');
+                            setTimeout(() => window.location.href = 'driver.html', 1500);
+                        }
+                    } else {
+                        showInfo('signup-info', 'Account found. Redirecting...');
+                        setTimeout(() => window.location.href = 'rider.html', 1500);
+                    }
+
+                    setLoading('signup-btn', false, 'Create Account');
+                    return;
+                }
+
+                showError('signup-error', error.message);
+                setLoading('signup-btn', false, 'Create Account');
+                return;
+            }
+
+            // Brand new account — save to users table
+            const nameParts = name.split(' ');
+            await db.from('users').insert({
+                user_id: data.user.id,
+                first_name: nameParts[0] || name,
+                last_name: nameParts.slice(1).join(' ') || '',
+                email,
+                phone
+            });
+
+            // If driver, create a blank driver record and send to setup page
+            if (selectedRole === 'driver') {
+                await db.from('drivers').insert({
+                    user_id: data.user.id,
+                    name: name,
+                    status: 'inactive',
+                    rating: 5.0,
+                    seats_available: 4,
+                    price: 0
+                });
+                setLoading('signup-btn', false, 'Create Account');
+                alert('Account created! Please check your email to confirm, then complete your driver profile.');
+                window.location.href = 'driver-setup.html';
+            } else {
+                setLoading('signup-btn', false, 'Create Account');
+                alert('Account created! Please check your email to confirm, then sign in.');
+                showLogin();
+            }
+        }
+    </script>
+</body>
+</html>

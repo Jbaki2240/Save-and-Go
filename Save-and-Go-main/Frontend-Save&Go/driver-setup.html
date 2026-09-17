@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Your Driver Profile - Save & Go</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 40px 30px; background-color: #0f172a; color: #ffffff; font-family: 'Lexend', sans-serif; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+        .container { width: 100%; max-width: 560px; }
+        .logo { font-size: 20px; font-weight: 700; color: #1eb1c1; margin-bottom: 40px; }
+        .step-indicator { display: flex; align-items: center; gap: 8px; margin-bottom: 32px; }
+        .step { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+        .step.done { background: #10b981; color: white; }
+        .step.active { background: #1eb1c1; color: #0f172a; }
+        .step.pending { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+        .step-line { flex: 1; height: 2px; background: #334155; }
+        .step-line.done { background: #10b981; }
+        h1 { font-size: 32px; font-weight: 700; margin: 0 0 8px 0; }
+        .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 36px; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 15px; padding: 28px; margin-bottom: 20px; }
+        .card h2 { font-size: 16px; font-weight: 600; margin: 0 0 20px 0; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; color: #94a3b8; font-size: 13px; margin-bottom: 8px; }
+        .form-group input { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; padding: 12px 14px; font-family: 'Lexend'; font-size: 14px; outline: none; transition: 0.2s; }
+        .form-group input:focus { border-color: #1eb1c1; }
+        .form-row { display: flex; gap: 16px; }
+        .form-row .form-group { flex: 1; }
+        .photo-upload { border: 2px dashed #334155; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: 0.2s; position: relative; }
+        .photo-upload:hover { border-color: #1eb1c1; background: #0f1e2e; }
+        .photo-upload input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .photo-preview { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; margin: 0 auto 12px; display: none; border: 3px solid #1eb1c1; }
+        .photo-upload-icon { width: 56px; height: 56px; background: #0f172a; border: 1px solid #334155; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; }
+        .photo-upload p { color: #94a3b8; font-size: 13px; margin: 0; }
+        .photo-upload span { color: #1eb1c1; font-weight: 600; }
+        .license-upload { border: 2px dashed #334155; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: 0.2s; position: relative; }
+        .license-upload:hover { border-color: #1eb1c1; background: #0f1e2e; }
+        .license-upload input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .license-upload p { color: #94a3b8; font-size: 13px; margin: 4px 0 0 0; }
+        .license-upload span { color: #1eb1c1; font-weight: 600; font-size: 14px; }
+        .license-filename { color: #10b981; font-size: 13px; margin-top: 8px; display: none; }
+        .error-msg { background: #7f1d1d; border: 1px solid #ef4444; color: #fca5a5; padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none; margin-bottom: 16px; }
+        .btn-submit { width: 100%; background: #1eb1c1; color: #0f172a; border: none; padding: 15px; border-radius: 10px; font-family: 'Lexend'; font-weight: 700; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 8px; }
+        .btn-submit:hover { background: #1598a7; }
+        .btn-submit:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
+        .progress-bar { width: 100%; height: 4px; background: #1e293b; border-radius: 2px; margin-bottom: 32px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #1eb1c1; border-radius: 2px; transition: width 0.5s ease; width: 0%; }
+        #loading-screen { display: flex; justify-content: center; align-items: center; height: 100vh; width: 100%; }
+        #loading-screen p { color: #94a3b8; font-size: 16px; }
+        #main-content { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Show loading while we check if setup is needed -->
+    <div id="loading-screen">
+        <p>Loading...</p>
+    </div>
+
+    <div class="container" id="main-content">
+
+        <div class="logo">SAVE & GO</div>
+
+        <div class="step-indicator">
+            <div class="step done">1</div>
+            <div class="step-line done"></div>
+            <div class="step active">2</div>
+            <div class="step-line"></div>
+            <div class="step pending">3</div>
+        </div>
+
+        <h1>Complete Your Profile</h1>
+        <p class="subtitle">Just a few more details to get you on the road.</p>
+
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+        <div id="error-msg" class="error-msg"></div>
+
+        <!-- PROFILE PHOTO -->
+        <div class="card">
+            <h2>Profile Photo</h2>
+            <div class="photo-upload">
+                <input type="file" id="photo-input" accept="image/*" onchange="previewPhoto(this)">
+                <img id="photo-preview" class="photo-preview" src="" alt="Preview">
+                <div class="photo-upload-icon" id="photo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1eb1c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <p><span>Click to upload</span> your profile photo</p>
+                <p style="margin-top:4px; color:#475569;">JPG or PNG, up to 5MB</p>
+            </div>
+        </div>
+
+        <!-- VEHICLE INFO -->
+        <div class="card">
+            <h2>Vehicle Information</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Make</label>
+                    <input type="text" id="vehicle-make" placeholder="e.g. Honda" oninput="updateProgress()">
+                </div>
+                <div class="form-group">
+                    <label>Model</label>
+                    <input type="text" id="vehicle-model" placeholder="e.g. Civic" oninput="updateProgress()">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Year</label>
+                    <input type="text" id="vehicle-year" placeholder="e.g. 2020" oninput="updateProgress()">
+                </div>
+                <div class="form-group">
+                    <label>License Plate</label>
+                    <input type="text" id="license-plate" placeholder="e.g. ABC 123" oninput="updateProgress()">
+                </div>
+            </div>
+        </div>
+
+        <!-- DRIVER'S LICENSE -->
+        <div class="card">
+            <h2>Driver's License</h2>
+            <div class="form-group">
+                <label>License Number</label>
+                <input type="text" id="license-number" placeholder="e.g. NS-123456" oninput="updateProgress()">
+            </div>
+            <div class="form-group">
+                <label>Upload License Photo</label>
+                <div class="license-upload">
+                    <input type="file" id="license-input" accept="image/*,application/pdf" onchange="previewLicense(this)">
+                    <span>Click to upload license</span>
+                    <p>Image or PDF, up to 5MB</p>
+                    <p class="license-filename" id="license-filename"></p>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-submit" id="submit-btn" onclick="saveProfile()">Complete Setup</button>
+
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const db = createClient(
+            'https://bpoglbqzttnuywtqlxiu.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwb2dsYnF6dHRudXl3dHFseGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ2MTEsImV4cCI6MjA4OTI5MDYxMX0.2hUJLe9hd_hM34ww1bWumEddfEjzFG3fh2zxlv0xg-Y'
+        );
+
+        let currentUser = null;
+        let photoFile = null;
+        let licenseFile = null;
+
+        async function init() {
+            const { data: { user }, error } = await db.auth.getUser();
+
+            if (error || !user) {
+                window.location.href = 'signup.html';
+                return;
+            }
+
+            currentUser = user;
+
+            // Check if driver has already completed setup
+            const { data: driverData } = await db
+                .from('drivers')
+                .select('vehicle, license_number')
+                .eq('user_id', user.id)
+                .single();
+
+            // If vehicle and license already filled in, skip setup
+            if (driverData && driverData.vehicle && driverData.license_number &&
+                driverData.vehicle !== 'Your Vehicle' &&
+                driverData.license_number !== 'NS-000000') {
+                window.location.href = 'driver.html';
+                return;
+            }
+
+            // Show the setup form
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+        }
+
+        function previewPhoto(input) {
+            photoFile = input.files[0];
+            if (!photoFile) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const preview = document.getElementById('photo-preview');
+                const icon = document.getElementById('photo-icon');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                icon.style.display = 'none';
+            };
+            reader.readAsDataURL(photoFile);
+            updateProgress();
+        }
+
+        function previewLicense(input) {
+            licenseFile = input.files[0];
+            if (!licenseFile) return;
+            const nameEl = document.getElementById('license-filename');
+            nameEl.innerText = licenseFile.name;
+            nameEl.style.display = 'block';
+            updateProgress();
+        }
+
+        function updateProgress() {
+            let filled = 0;
+            if (photoFile) filled++;
+            if (document.getElementById('vehicle-make').value.trim()) filled++;
+            if (document.getElementById('license-number').value.trim()) filled++;
+            if (licenseFile) filled++;
+            document.getElementById('progress-fill').style.width = (filled / 4 * 100) + '%';
+        }
+
+        async function saveProfile() {
+            const make = document.getElementById('vehicle-make').value.trim();
+            const model = document.getElementById('vehicle-model').value.trim();
+            const year = document.getElementById('vehicle-year').value.trim();
+            const plate = document.getElementById('license-plate').value.trim();
+            const licenseNum = document.getElementById('license-number').value.trim();
+
+            if (!make || !model || !licenseNum || !plate) {
+                showError('Please fill in all required fields: vehicle make, model, license plate, and license number.');
+                return;
+            }
+
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+
+            try {
+                let photoUrl = null;
+                let licenseUrl = null;
+
+                // Upload profile photo to Supabase storage
+                if (photoFile) {
+                    const ext = photoFile.name.split('.').pop();
+                    const photoPath = `driver-photos/${currentUser.id}/profile.${ext}`;
+                    const { error: uploadError } = await db.storage
+                        .from('driver-files')
+                        .upload(photoPath, photoFile, { upsert: true });
+                    if (!uploadError) {
+                        const { data: urlData } = db.storage
+                            .from('driver-files')
+                            .getPublicUrl(photoPath);
+                        photoUrl = urlData.publicUrl;
+                    }
+                }
+
+                // Upload license photo to Supabase storage
+                if (licenseFile) {
+                    const ext = licenseFile.name.split('.').pop();
+                    const licensePath = `driver-licenses/${currentUser.id}/license.${ext}`;
+                    const { error: uploadError } = await db.storage
+                        .from('driver-files')
+                        .upload(licensePath, licenseFile, { upsert: true });
+                    if (!uploadError) {
+                        const { data: urlData } = db.storage
+                            .from('driver-files')
+                            .getPublicUrl(licensePath);
+                        licenseUrl = urlData.publicUrl;
+                    }
+                }
+
+                // Save all details to drivers table
+                const vehicle = `${year} ${make} ${model}`.trim();
+                const { error: dbError } = await db.from('drivers').update({
+                    vehicle,
+                    license_number: licenseNum,
+                    license_plate: plate,
+                    photo_url: photoUrl,
+                    license_photo_url: licenseUrl,
+                    status: 'inactive'
+                }).eq('user_id', currentUser.id);
+
+                if (dbError) {
+                    showError('Failed to save your details. Error: ' + dbError.message);
+                    btn.disabled = false;
+                    btn.innerText = 'Complete Setup';
+                    return;
+                }
+
+                // Done — go to driver dashboard
+                window.location.href = 'driver.html';
+
+            } catch (err) {
+                showError('Something went wrong. Please try again.');
+                btn.disabled = false;
+                btn.innerText = 'Complete Setup';
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.innerText = msg;
+            el.style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+
+        // Run on page load
+        init();
+    </script>
+</body>
+</html>

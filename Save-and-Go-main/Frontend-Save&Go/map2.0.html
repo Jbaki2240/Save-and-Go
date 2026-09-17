@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ride Tracker - Save & Go</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; font-family: 'Lexend', sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
+        .menu-toggle { position: absolute; top: 15px; left: 15px; z-index: 1200; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer; font-size: 20px; }
+        .sidebar { position: absolute; top: 0; left: -300px; width: 250px; height: 100%; background: rgb(40, 106, 163); transition: 0.3s ease-in-out; z-index: 1150; padding: 20px; }
+        .sidebar.active { left: 0; box-shadow: 4px 0 10px rgba(0,0,0,0.2); }
+        .sidebar h2 { margin-top: 45px; margin-bottom: 10px; font-size: 24px; font-weight: 600; color: black; }
+        .sidebar .role-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; display: inline-block; margin-bottom: 20px; }
+        .sidebar .role-badge.rider { background: #1eb1c1; color: #0f172a; }
+        .sidebar .role-badge.driver { background: #f97316; color: white; }
+        .sidebar a { display: block; text-decoration: none; color: black; font-weight: 600; font-size: 15px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; transition: 0.2s; }
+        .sidebar a:hover { background: rgba(255,255,255,0.2); }
+        .sidebar-logout { display: block; color: #7f1d1d; font-weight: 600; font-size: 15px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; cursor: pointer; background: none; border: none; font-family: 'Lexend'; width: 100%; text-align: left; }
+        .sidebar-logout:hover { background: rgba(255,255,255,0.2); }
+        .search-container { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 8px 12px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: flex; width: 320px; }
+        .search-container input { border: none; outline: none; flex: 1; font-family: 'Lexend'; }
+        .search-container button { background: #000; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-weight: 600; }
+        .leaflet-top.leaflet-left { top: 70px; }
+        #status-msg { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; padding: 10px 20px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-size: 13px; display: none; font-family: 'Lexend'; }
+        #waiting-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.92); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
+        #waiting-overlay.show { display: flex; }
+        .waiting-card { background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 40px; text-align: center; max-width: 380px; width: 90%; font-family: 'Lexend'; color: white; }
+        .waiting-card h2 { font-size: 22px; font-weight: 700; margin: 0 0 10px 0; }
+        .waiting-card p { color: #94a3b8; font-size: 14px; margin: 0 0 24px 0; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #334155; border-top-color: #1eb1c1; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 24px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .status-badge { padding: 10px 20px; border-radius: 30px; font-weight: 700; font-size: 15px; margin-bottom: 20px; display: inline-block; }
+        .status-badge.pending { background: #1e3a5f; color: #7dd3fc; }
+        .status-badge.accepted { background: #064e3b; color: #6ee7b7; }
+        .status-badge.rejected { background: #7f1d1d; color: #fca5a5; }
+        .btn-cancel { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 10px 24px; border-radius: 8px; font-family: 'Lexend'; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        .btn-cancel:hover { border-color: #ef4444; color: #ef4444; }
+        .btn-goto { background: #1eb1c1; border: none; color: #0f172a; padding: 12px 28px; border-radius: 8px; font-family: 'Lexend'; font-weight: 700; cursor: pointer; font-size: 15px; margin-top: 12px; }
+        .btn-goto:hover { background: #1598a7; }
+        .price-breakdown { background: #0f172a; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; text-align: left; font-size: 13px; }
+        .price-breakdown .row { display: flex; justify-content: space-between; padding: 4px 0; color: #94a3b8; }
+        .price-breakdown .row.total { color: white; font-weight: 700; font-size: 16px; border-top: 1px solid #334155; margin-top: 8px; padding-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+
+    <div class="search-container">
+        <input id="searchInput" type="text" placeholder="Where to?">
+        <button onclick="searchDestination()">Search</button>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <h2>Menu</h2>
+        <span id="role-badge" class="role-badge"></span>
+        <div id="sidebar-links"></div>
+        <button class="sidebar-logout" onclick="logout()">Log Out</button>
+    </div>
+
+    <div id="waiting-overlay">
+        <div class="waiting-card">
+            <div class="spinner" id="spinner"></div>
+            <h2 id="waiting-title">Waiting for Driver</h2>
+            <p id="waiting-subtitle">Your request has been sent. Please wait while the driver responds.</p>
+            <div id="price-breakdown" class="price-breakdown" style="display:none;"></div>
+            <div class="status-badge pending" id="status-badge">Pending</div>
+            <br>
+            <button class="btn-cancel" id="cancel-btn" onclick="cancelRequest()">Cancel Request</button>
+        </div>
+    </div>
+
+    <div id="map"></div>
+    <div id="status-msg"></div>
+
+    <script>
+        const { createClient } = supabase;
+        const db = createClient(
+            'https://bpoglbqzttnuywtqlxiu.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwb2dsYnF6dHRudXl3dHFseGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ2MTEsImV4cCI6MjA4OTI5MDYxMX0.2hUJLe9hd_hM34ww1bWumEddfEjzFG3fh2zxlv0xg-Y'
+        );
+
+        const RATE_PER_KM = 1.00;   // $1 per km
+        const BASE_FARE   = 3.00;   // $3 base fare
+        const MIN_FARE    = 5.00;   // minimum $5 
+        // Known location coordinates for destination matching
+        const KNOWN_LOCATIONS = {
+            'wolfville':   { lat: 45.0917, lng: -64.3678 },
+            'new minas':   { lat: 45.0697, lng: -64.4139 },
+            'kentville':   { lat: 45.0772, lng: -64.4956 },
+            'windsor':     { lat: 44.9897, lng: -64.1389 },
+            'halifax':     { lat: 44.6488, lng: -63.5752 },
+            'truro':       { lat: 45.3647, lng: -63.2564 },
+            'bridgewater': { lat: 44.3728, lng: -64.5228 },
+            'yarmouth':    { lat: 43.8372, lng: -66.1175 },
+            'antigonish':  { lat: 45.6237, lng: -61.9969 },
+        };
+
+        const RIDER_LOCATION = { lat: 45.0917, lng: -64.3678 }; // Wolfville (default)
+
+        let currentUser = null;
+        let allDrivers = [];
+        let markers = [];
+        let activeRequestId = null;
+        let realtimeChannel = null;
+
+        // ── Haversine distance formula (km) ──────────────────────
+        function getDistanceKm(lat1, lng1, lat2, lng2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        // ── Calculate fare from driver location to destination ────
+        function calculateFare(driver) {
+            const destName = (driver.destination || '').toLowerCase().trim();
+            const destCoords = KNOWN_LOCATIONS[destName];
+
+            if (!destCoords) return null; // unknown destination
+
+            const km = getDistanceKm(
+                RIDER_LOCATION.lat, RIDER_LOCATION.lng,
+                destCoords.lat, destCoords.lng
+            );
+
+            const fare = Math.max(MIN_FARE, BASE_FARE + (km * RATE_PER_KM));
+            return { km: km.toFixed(1), fare: fare.toFixed(2) };
+        }
+
+        async function loadSidebar() {
+            const { data: { user } } = await db.auth.getUser();
+            if (!user) { window.location.href = 'signup.html'; return; }
+            currentUser = user;
+
+            const { data: driverData } = await db.from('drivers').select('driver_id').eq('user_id', user.id).single();
+            const isDriver = !!driverData;
+            const badge = document.getElementById('role-badge');
+            const links = document.getElementById('sidebar-links');
+
+            if (isDriver) {
+                badge.innerText = 'Driver';
+                badge.classList.add('driver');
+                links.innerHTML = `
+                    <a href="driver.html">Dashboard</a>
+                    <a href="map2.0.html">Map / Tracker</a>
+                    <a href="settings.html">Settings</a>
+                    <a href="support.html">Support</a>`;
+            } else {
+                badge.innerText = 'Rider';
+                badge.classList.add('rider');
+                links.innerHTML = `
+                    <a href="rider.html">Home</a>
+                    <a href="map2.0.html">Find a Ride</a>
+                    <a href="payment.html">Payment</a>
+                    <a href="settings.html">Settings</a>
+                    <a href="support.html">Support</a>`;
+            }
+        }
+
+        const map = L.map('map').setView([45.0917, -64.3678], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.circleMarker([45.0917, -64.3678], {
+            radius: 10, fillColor: "#007bff", color: "white", weight: 3, opacity: 1, fillOpacity: 0.8
+        }).addTo(map).bindPopup("<b>You are here</b>");
+
+        const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png', iconSize: [30, 30] });
+
+        function showStatus(msg, duration = 3000) {
+            const el = document.getElementById('status-msg');
+            el.innerText = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', duration);
+        }
+
+        async function loadDriversFromDB() {
+            showStatus('Loading nearby drivers...', 5000);
+            const { data, error } = await db.from('drivers').select('*').eq('status', 'active').not('lat', 'is', null).not('lng', 'is', null);
+            if (error) { showStatus('Could not load drivers.'); return; }
+            allDrivers = data;
+            renderDrivers(allDrivers);
+            showStatus(`Found ${data.length} active driver(s) nearby!`);
+        }
+
+        function renderDrivers(list) {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            if (list.length === 0) { showStatus('No active drivers found.'); return; }
+            list.forEach(driver => {
+                const marker = L.marker([driver.lat, driver.lng], { icon: carIcon }).addTo(map);
+                marker.bindPopup(createPopupContent(driver));
+                markers.push(marker);
+            });
+        }
+
+        function createPopupContent(driver) {
+            const pricing = calculateFare(driver);
+            const priceDisplay = pricing
+                ? `<div style="background:#0f172a;border-radius:8px;padding:10px;margin:10px 0;font-size:13px;">
+                        <div style="display:flex;justify-content:space-between;color:#94a3b8;margin-bottom:4px;">
+                            <span>Distance</span><span>${pricing.km} km</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;color:#94a3b8;margin-bottom:4px;">
+                            <span>Base fare</span><span>$${BASE_FARE.toFixed(2)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;color:#94a3b8;margin-bottom:8px;">
+                            <span>Per km ($${RATE_PER_KM}/km)</span><span>$${(pricing.km * RATE_PER_KM).toFixed(2)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;color:white;font-weight:700;font-size:15px;border-top:1px solid #334155;padding-top:8px;">
+                            <span>Total</span><span style="color:#1eb1c1;">$${pricing.fare}</span>
+                        </div>
+                   </div>`
+                : `<div style="color:#94a3b8;font-size:13px;margin:8px 0;">Price calculated on booking</div>`;
+
+            const fareAmount = pricing ? pricing.fare : 0;
+            const kmAmount = pricing ? pricing.km : 0;
+
+            return `
+                <div style="font-family:'Lexend';width:220px;">
+                    <b style="font-size:16px;">${driver.name || 'Driver'}</b><br>
+                    <span style="color:#555;">★ ${driver.rating || 'N/A'} rating</span><br><br>
+                    Vehicle: ${driver.vehicle || 'Unknown'}<br>
+                    Seats available: <b>${driver.seats_available}</b><br>
+                    Going to: <b>${driver.destination || 'N/A'}</b><br>
+                    ${priceDisplay}
+                    <button onclick="requestRide('${driver.driver_id}','${driver.destination || ''}','${fareAmount}','${kmAmount}')"
+                        ${driver.seats_available <= 0 ?
+                            'disabled style="background:grey;color:white;width:100%;padding:10px;border:none;border-radius:8px;"' :
+                            'style="background:#1eb1c1;color:#0f172a;width:100%;padding:12px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:15px;"'}>
+                        ${driver.seats_available <= 0 ? 'Full' : 'Save & Go'}
+                    </button>
+                </div>`;
+        }
+
+        async function requestRide(driverId, destination, fare, km) {
+            if (!currentUser) { showStatus('Please log in first.'); return; }
+
+            const { data, error } = await db.from('ride_requests').insert({
+                rider_id: currentUser.id,
+                driver_id: driverId,
+                status: 'pending',
+                pickup: 'Wolfville',
+                destination: destination,
+                price: parseFloat(fare)
+            }).select().single();
+
+            if (error) { showStatus('Failed to send request. Try again.'); return; }
+
+            activeRequestId = data.request_id;
+
+            // Show waiting overlay with price breakdown
+            document.getElementById('waiting-overlay').classList.add('show');
+            document.getElementById('waiting-title').innerText = 'Waiting for Driver';
+            document.getElementById('waiting-subtitle').innerText = 'Your request has been sent. Please wait while the driver responds.';
+            document.getElementById('status-badge').innerText = 'Pending';
+            document.getElementById('status-badge').className = 'status-badge pending';
+            document.getElementById('spinner').style.display = 'block';
+            document.getElementById('cancel-btn').style.display = 'inline-block';
+            document.getElementById('cancel-btn').innerText = 'Cancel Request';
+
+            // Show price breakdown in overlay
+            const breakdown = document.getElementById('price-breakdown');
+            breakdown.style.display = 'block';
+            breakdown.innerHTML = `
+                <div class="row"><span>Distance</span><span>${km} km</span></div>
+                <div class="row"><span>Base fare</span><span>$${BASE_FARE.toFixed(2)}</span></div>
+                <div class="row"><span>Per km</span><span>$${(km * RATE_PER_KM).toFixed(2)}</span></div>
+                <div class="row total"><span>Your fare</span><span>$${parseFloat(fare).toFixed(2)}</span></div>`;
+
+            listenForResponse(data.request_id);
+        }
+
+        function listenForResponse(requestId) {
+            if (realtimeChannel) db.removeChannel(realtimeChannel);
+
+            realtimeChannel = db.channel('ride-request-' + requestId)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'ride_requests',
+                    filter: `request_id=eq.${requestId}`
+                }, payload => {
+                    const newStatus = payload.new.status;
+
+                    if (newStatus === 'accepted') {
+                        document.getElementById('spinner').style.display = 'none';
+                        document.getElementById('waiting-title').innerText = 'Ride Accepted!';
+                        document.getElementById('waiting-subtitle').innerText = 'Your driver is on the way. Head to the pickup point.';
+                        document.getElementById('status-badge').innerText = 'Accepted';
+                        document.getElementById('status-badge').className = 'status-badge accepted';
+                        document.getElementById('cancel-btn').style.display = 'none';
+                        document.getElementById('cancel-btn').insertAdjacentHTML('afterend',
+                            `<br><button class="btn-goto" onclick="window.location.href='payment.html'">Proceed to Payment</button>`
+                        );
+                    }
+
+                    if (newStatus === 'rejected') {
+                        document.getElementById('spinner').style.display = 'none';
+                        document.getElementById('waiting-title').innerText = 'Request Declined';
+                        document.getElementById('waiting-subtitle').innerText = 'The driver could not take your ride. Please try another driver.';
+                        document.getElementById('status-badge').innerText = 'Declined';
+                        document.getElementById('status-badge').className = 'status-badge rejected';
+                        document.getElementById('cancel-btn').innerText = 'Close';
+                    }
+                })
+                .subscribe();
+        }
+
+        async function cancelRequest() {
+            if (activeRequestId) {
+                await db.from('ride_requests').update({ status: 'cancelled' }).eq('request_id', activeRequestId);
+                if (realtimeChannel) db.removeChannel(realtimeChannel);
+                activeRequestId = null;
+            }
+            document.getElementById('waiting-overlay').classList.remove('show');
+        }
+
+        function searchDestination() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (!query) { renderDrivers(allDrivers); return; }
+            const filtered = allDrivers.filter(d => d.destination && d.destination.toLowerCase().includes(query));
+            renderDrivers(filtered);
+        }
+
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); }
+        async function logout() { await db.auth.signOut(); window.location.href = 'profile2.0.html'; }
+
+        loadSidebar();
+        loadDriversFromDB();
+    </script>
+</body>
+</html>

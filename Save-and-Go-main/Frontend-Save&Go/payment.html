@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment - Save & Go</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        body { margin: 0; padding: 80px 30px 30px; background-color: #0f172a; color: #ffffff; font-family: 'Lexend', sans-serif; }
+        .menu-toggle { position: absolute; top: 15px; left: 15px; z-index: 1200; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; color: black; font-size: 20px; }
+        .sidebar { position: fixed; top: 0; left: -300px; width: 250px; height: 100%; background: rgb(40, 106, 163); transition: 0.3s; z-index: 1150; padding: 20px; }
+        .sidebar.active { left: 0; box-shadow: 4px 0 10px rgba(0,0,0,0.2); }
+        .sidebar h2 { margin-top: 45px; margin-bottom: 10px; font-size: 24px; font-weight: 600; color: black; }
+        .sidebar .role-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; display: inline-block; margin-bottom: 20px; }
+        .sidebar .role-badge.rider { background: #1eb1c1; color: #0f172a; }
+        .sidebar .role-badge.driver { background: #f97316; color: white; }
+        .sidebar a { display: block; text-decoration: none; color: black; font-weight: 600; font-size: 15px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; transition: 0.2s; }
+        .sidebar a:hover { background: rgba(255,255,255,0.2); }
+        .sidebar-logout { display: block; color: #7f1d1d; font-weight: 600; font-size: 15px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; cursor: pointer; background: none; border: none; font-family: 'Lexend'; width: 100%; text-align: left; }
+        .sidebar-logout:hover { background: rgba(255,255,255,0.2); }
+        h1 { font-size: 40px; font-weight: 700; margin-bottom: 30px; }
+        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 15px; padding: 24px; max-width: 500px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; color: #94a3b8; font-size: 14px; margin-bottom: 5px; }
+        input { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; padding: 12px; box-sizing: border-box; font-family: 'Lexend'; outline: none; }
+        input:focus { border-color: #1eb1c1; }
+        .btn-confirm { background: #10b981; color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: 700; margin-top: 20px; cursor: pointer; font-family: 'Lexend'; font-size: 15px; }
+        .btn-confirm:hover { background: #059669; }
+    </style>
+</head>
+<body>
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+    <div class="sidebar" id="sidebar">
+        <h2>Menu</h2>
+        <span id="role-badge" class="role-badge"></span>
+        <div id="sidebar-links"></div>
+        <button class="sidebar-logout" onclick="logout()">Log Out</button>
+    </div>
+
+    <h1>Payment Method</h1>
+    <div class="card">
+        <div class="input-group">
+            <label>Cardholder Name</label>
+            <input type="text" placeholder="John Doe">
+        </div>
+        <div class="input-group">
+            <label>Card Number</label>
+            <input type="text" placeholder="XXXX XXXX XXXX 1234">
+        </div>
+        <div style="display:flex; gap:15px;">
+            <div class="input-group" style="flex:1;">
+                <label>Expiry</label>
+                <input type="text" placeholder="MM/YY">
+            </div>
+            <div class="input-group" style="flex:1;">
+                <label>CVV</label>
+                <input type="password" placeholder="***">
+            </div>
+        </div>
+        <button class="btn-confirm" onclick="alert('Payment Successful!'); window.location.href='map2.0.html'">Pay Now</button>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const db = createClient(
+            'https://bpoglbqzttnuywtqlxiu.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwb2dsYnF6dHRudXl3dHFseGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ2MTEsImV4cCI6MjA4OTI5MDYxMX0.2hUJLe9hd_hM34ww1bWumEddfEjzFG3fh2zxlv0xg-Y'
+        );
+
+        async function loadSidebar() {
+            const { data: { user } } = await db.auth.getUser();
+            if (!user) { window.location.href = 'signup.html'; return; }
+            const { data: driverData } = await db.from('drivers').select('driver_id').eq('user_id', user.id).single();
+            const isDriver = !!driverData;
+            const badge = document.getElementById('role-badge');
+            const links = document.getElementById('sidebar-links');
+            if (isDriver) {
+                badge.innerText = 'Driver';
+                badge.classList.add('driver');
+                links.innerHTML = `
+                    <a href="driver.html">Dashboard</a>
+                    <a href="map2.0.html">Map / Tracker</a>
+                    <a href="settings.html">Settings</a>
+                    <a href="support.html">Support</a>`;
+            } else {
+                badge.innerText = 'Rider';
+                badge.classList.add('rider');
+                links.innerHTML = `
+                    <a href="rider.html">Home</a>
+                    <a href="map2.0.html">Find a Ride</a>
+                    <a href="payment.html">Payment</a>
+                    <a href="settings.html">Settings</a>
+                    <a href="support.html">Support</a>`;
+            }
+        }
+
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); }
+        async function logout() { await db.auth.signOut(); window.location.href = 'profile2.0.html'; }
+
+        loadSidebar();
+    </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rider - Save & Go</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        body { margin: 0; padding: 80px 30px 30px; background-color: #0f172a; color: #ffffff; font-family: 'Lexend', sans-serif; }
+        .menu-toggle { position: absolute; top: 15px; left: 15px; z-index: 1200; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer; font-size: 20px; color: black; }
+        .sidebar { position: fixed; top: 0; left: -300px; width: 250px; height: 100%; background: rgb(40, 106, 163); transition: 0.3s ease-in-out; z-index: 1150; padding: 20px; }
+        .sidebar.active { left: 0; box-shadow: 4px 0 10px rgba(0,0,0,0.2); }
+        .sidebar h2 { margin-top: 45px; margin-bottom: 10px; font-size: 24px; font-weight: 600; color: black; }
+        .sidebar .role-badge { background: #1eb1c1; color: #0f172a; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; display: inline-block; margin-bottom: 20px; }
+        .sidebar a { display: block; text-decoration: none; color: black; font-weight: 600; font-size: 15px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; transition: 0.2s; }
+        .sidebar a:hover { background: rgba(255,255,255,0.2); }
+        .sidebar-logout { display: block; color: #7f1d1d; font-weight: 600; font-size: 15px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; cursor: pointer; background: none; border: none; font-family: 'Lexend'; width: 100%; text-align: left; }
+        .sidebar-logout:hover { background: rgba(255,255,255,0.2); }
+        h1 { font-size: 40px; font-weight: 700; margin-bottom: 40px; }
+        .dashboard-row { display: flex; gap: 20px; }
+        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 15px; padding: 24px; flex: 1; max-width: calc(50% - 10px); }
+        .icon-container { width: 50px; height: 50px; background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; }
+        h2 { font-size: 20px; font-weight: 600; margin: 0 0 20px 0; }
+        .profile-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; font-size: 14px; }
+        .label { color: #94a3b8; }
+        .btn-orange { background-color: #f97316; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 20px; font-family: 'Lexend'; }
+        .btn-logout { background-color: #ef4444; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 20px; font-family: 'Lexend'; margin-left: 10px; }
+        .history-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #334155; font-size: 14px; color: #94a3b8; }
+        @media (max-width: 900px) { .dashboard-row { flex-direction: column; } .card { max-width: 100%; } }
+    </style>
+</head>
+<body>
+
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+
+    <div class="sidebar" id="sidebar">
+        <h2>Menu</h2>
+        <span class="role-badge">Rider</span>
+        <a href="rider.html">Home</a>
+        <a href="map2.0.html">Find a Ride</a>
+        <a href="payment.html">Payment</a>
+        <a href="settings.html">Settings</a>
+        <a href="support.html">Support</a>
+        <button class="sidebar-logout" onclick="logout()">Log Out</button>
+    </div>
+
+    <h1 id="greeting">Hello...</h1>
+
+    <div class="dashboard-row">
+        <div class="card">
+            <div class="icon-container">
+                <svg width="24" viewBox="0 0 24 24" fill="none" stroke="#1eb1c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+            <h2>Profile Information</h2>
+            <div class="profile-row"><span class="label">Email</span><span id="user-email">Loading...</span></div>
+            <div class="profile-row"><span class="label">Phone</span><span id="user-phone">Loading...</span></div>
+            <div class="profile-row"><span class="label">Name</span><span id="user-name">Loading...</span></div>
+            <div class="profile-row"><span class="label">Joined</span><span id="user-joined">Loading...</span></div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-orange" onclick="window.location.href='settings.html'">Edit Profile</button>
+                <button class="btn-logout" onclick="logout()">Log Out</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="icon-container">
+                <svg width="24" viewBox="0 0 24 24" fill="none" stroke="#1eb1c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <h2>Ride History</h2>
+            <div id="ride-history">
+                <div style="color:#94a3b8; font-size:14px;">Loading ride history...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const db = createClient(
+            'https://bpoglbqzttnuywtqlxiu.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwb2dsYnF6dHRudXl3dHFseGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ2MTEsImV4cCI6MjA4OTI5MDYxMX0.2hUJLe9hd_hM34ww1bWumEddfEjzFG3fh2zxlv0xg-Y'
+        );
+
+        async function loadProfile() {
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) { window.location.href = 'signup.html'; return; }
+
+    // Get from users table first
+    const { data: userData } = await db.from('users').select('*').eq('user_id', user.id).single();
+
+    const firstName = userData?.first_name || user.user_metadata?.full_name?.split(' ')[0] || user.email.split('@')[0];
+    const lastName = userData?.last_name || user.user_metadata?.full_name?.split(' ')[1] || '';
+    const fullName = (firstName + ' ' + lastName).trim();
+
+    document.getElementById('greeting').innerText = 'Hello ' + firstName;
+    document.getElementById('user-email').innerText = userData?.email || user.email;
+    document.getElementById('user-phone').innerText = userData?.phone || 'N/A';
+    document.getElementById('user-name').innerText = fullName || 'N/A';
+    document.getElementById('user-joined').innerText = new Date(user.created_at).toLocaleDateString();
+
+    loadRideHistory(user.id);
+}
+
+        async function loadRideHistory(userId) {
+            const { data } = await db.from('bookings').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+            if (!data || data.length === 0) {
+                document.getElementById('ride-history').innerHTML = '<div style="color:#94a3b8; font-size:14px;">No rides yet.</div>';
+                return;
+            }
+            let html = '';
+            data.forEach(b => {
+                const date = new Date(b.created_at).toLocaleDateString();
+                html += `<div class="history-item"><div><b>${b.destination || 'N/A'}</b><br>From: ${b.pickup || 'N/A'}</div><div style="text-align:right">${date}<br><span style="color:#10b981">$${(b.price || 0).toFixed(2)}</span></div></div>`;
+            });
+            document.getElementById('ride-history').innerHTML = html;
+        }
+
+        async function logout() { await db.auth.signOut(); window.location.href = 'profile2.0.html'; }
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); }
+
+        loadProfile();
+    </script>
+</body>
+</html>

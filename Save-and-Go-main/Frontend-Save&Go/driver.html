@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Driver Dashboard - Save & Go</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        body { margin: 0; padding: 80px 30px 30px; background-color: #0f172a; color: #ffffff; font-family: 'Lexend', sans-serif; }
+        .menu-toggle { position: absolute; top: 15px; left: 15px; z-index: 1200; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer; font-size: 20px; color: black; }
+        .sidebar { position: fixed; top: 0; left: -300px; width: 250px; height: 100%; background: rgb(40, 106, 163); transition: 0.3s ease-in-out; z-index: 1150; padding: 20px; }
+        .sidebar.active { left: 0; box-shadow: 4px 0 10px rgba(0,0,0,0.2); }
+        .sidebar h2 { margin-top: 45px; margin-bottom: 10px; font-size: 24px; font-weight: 600; color: black; }
+        .sidebar .role-badge { background: #f97316; color: white; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; display: inline-block; margin-bottom: 20px; }
+        .sidebar a { display: block; text-decoration: none; color: black; font-weight: 600; font-size: 15px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; transition: 0.2s; }
+        .sidebar a:hover { background: rgba(255,255,255,0.2); }
+        .sidebar-logout { display: block; color: #7f1d1d; font-weight: 600; font-size: 15px; margin: 8px 0; padding: 8px 10px; border-radius: 8px; cursor: pointer; background: none; border: none; font-family: 'Lexend'; width: 100%; text-align: left; }
+        .sidebar-logout:hover { background: rgba(255,255,255,0.2); }
+        h1 { font-size: 40px; font-weight: 700; margin-bottom: 30px; }
+        .dashboard-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 15px; padding: 24px; flex: 1; min-width: 280px; max-width: calc(50% - 10px); display: flex; flex-direction: column; }
+        .card.full-width { max-width: 100%; flex-basis: 100%; }
+        .icon-container { width: 50px; height: 50px; background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; }
+        h2 { font-size: 20px; font-weight: 600; margin: 0 0 20px 0; }
+        .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; font-size: 14px; }
+        .label { color: #94a3b8; }
+        .status-btn-group { display: flex; gap: 12px; margin-top: 20px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-family: 'Lexend'; font-weight: 600; cursor: pointer; transition: 0.2s; color: white; }
+        .btn-active { background-color: #10b981; }
+        .btn-active:hover { background-color: #059669; }
+        .btn-offroad { background-color: #ef4444; }
+        .btn-offroad:hover { background-color: #dc2626; }
+        .btn-selected { outline: 3px solid white; }
+        .btn-edit { width: 100%; margin-top: 12px; padding: 12px; background: transparent; border: 1px solid #334155; color: #94a3b8; border-radius: 8px; font-family: 'Lexend'; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; }
+        .btn-edit:hover { border-color: #1eb1c1; color: #1eb1c1; }
+        .earning-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #334155; font-size: 14px; color: #94a3b8; }
+        .amount { color: #10b981; font-weight: 600; font-size: 16px; }
+        .request-card { background: #0f172a; border: 1px solid #1eb1c1; border-radius: 12px; padding: 18px; margin-bottom: 12px; }
+        .request-card .request-info { font-size: 14px; margin-bottom: 14px; line-height: 1.8; }
+        .request-card .request-info b { color: white; }
+        .request-card .request-info span { color: #94a3b8; }
+        .request-actions { display: flex; gap: 10px; }
+        .btn-accept { flex: 1; padding: 10px; background: #10b981; color: white; border: none; border-radius: 8px; font-family: 'Lexend'; font-weight: 700; cursor: pointer; font-size: 14px; }
+        .btn-accept:hover { background: #059669; }
+        .btn-reject { flex: 1; padding: 10px; background: #ef4444; color: white; border: none; border-radius: 8px; font-family: 'Lexend'; font-weight: 700; cursor: pointer; font-size: 14px; }
+        .btn-reject:hover { background: #dc2626; }
+        .notification-dot { display: inline-block; width: 10px; height: 10px; background: #ef4444; border-radius: 50%; margin-left: 8px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        #status-msg { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #334155; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; display: none; z-index: 9999; }
+        @media (max-width: 900px) { .card { max-width: 100%; } }
+    </style>
+</head>
+<body>
+
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+
+    <div class="sidebar" id="sidebar">
+        <h2>Menu</h2>
+        <span class="role-badge">Driver</span>
+        <a href="driver.html">Dashboard</a>
+        <a href="map2.0.html">Map / Tracker</a>
+        <a href="settings.html">Settings</a>
+        <a href="support.html">Support</a>
+        <button class="sidebar-logout" onclick="logout()">Log Out</button>
+    </div>
+
+    <h1>Driver Dashboard</h1>
+
+    <div class="dashboard-row">
+
+        <!-- Ride Requests Card -->
+        <div class="card full-width" id="requests-card" style="display:none;">
+            <div class="icon-container">
+                <svg width="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <h2>Incoming Ride Requests <span class="notification-dot"></span></h2>
+            <div id="requests-list"></div>
+        </div>
+
+        <!-- Driver Info Card -->
+        <div class="card">
+            <div class="icon-container">
+                <svg width="24" viewBox="0 0 24 24" fill="none" stroke="#1eb1c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+            <h2>Driver Information</h2>
+            <div class="info-row"><span class="label">Name</span><span id="driver-name">Loading...</span></div>
+            <div class="info-row"><span class="label">Email</span><span id="driver-email">Loading...</span></div>
+            <div class="info-row"><span class="label">Vehicle</span><span id="driver-vehicle">Loading...</span></div>
+            <div class="info-row"><span class="label">License #</span><span id="driver-license">Loading...</span></div>
+            <div class="info-row"><span class="label">Destination</span><span id="driver-destination">Loading...</span></div>
+            <div class="info-row"><span class="label">Seats</span><span id="driver-seats">Loading...</span></div>
+            <div class="info-row"><span class="label">Rating</span><span id="driver-rating">Loading...</span></div>
+            <div class="info-row"><span class="label">Status</span><span id="driver-status">Loading...</span></div>
+            <div class="status-btn-group">
+                <button class="btn btn-active" id="btn-active" onclick="setStatus('active')">Active</button>
+                <button class="btn btn-offroad" id="btn-offroad" onclick="setStatus('inactive')">Off-Road</button>
+            </div>
+            <button class="btn-edit" onclick="window.location.href='settings.html'">Edit Profile</button>
+        </div>
+
+        <!-- Earnings Card -->
+        <div class="card">
+            <div class="icon-container">
+                <svg width="24" viewBox="0 0 24 24" fill="none" stroke="#1eb1c1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <h2>Earning History</h2>
+            <div id="earnings-list">
+                <div style="color:#94a3b8; font-size:14px;">Loading earnings...</div>
+            </div>
+            <div style="margin-top: auto; padding-top: 15px; text-align: right;">
+                <span class="label">Total Earnings: </span>
+                <span id="total-earnings" style="font-size: 20px; font-weight: 700; color: white;">$0.00</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="status-msg"></div>
+
+    <script>
+        const { createClient } = supabase;
+        const db = createClient(
+            'https://bpoglbqzttnuywtqlxiu.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwb2dsYnF6dHRudXl3dHFseGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ2MTEsImV4cCI6MjA4OTI5MDYxMX0.2hUJLe9hd_hM34ww1bWumEddfEjzFG3fh2zxlv0xg-Y'
+        );
+
+        let currentDriverId = null;
+        let currentUser = null;
+
+        function showStatus(msg, duration = 3000) {
+            const el = document.getElementById('status-msg');
+            el.innerText = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', duration);
+        }
+
+        async function loadDriverInfo() {
+            const { data: { user }, error: authError } = await db.auth.getUser();
+            if (authError || !user) { window.location.href = 'signup.html'; return; }
+            currentUser = user;
+
+            const { data, error } = await db.from('drivers').select('*').eq('user_id', user.id).single();
+            if (error || !data) { showStatus('Could not load driver info.'); return; }
+
+            currentDriverId = data.driver_id;
+
+            const { data: userData } = await db.from('users').select('first_name, last_name, email').eq('user_id', user.id).single();
+            const fullName = userData
+                ? (userData.first_name + ' ' + userData.last_name).trim()
+                : user.email.split('@')[0];
+
+            document.getElementById('driver-name').innerText = fullName || 'N/A';
+            document.getElementById('driver-email').innerText = userData?.email || user.email;
+            document.getElementById('driver-vehicle').innerText = data.vehicle || 'N/A';
+            document.getElementById('driver-license').innerText = data.license_number || 'N/A';
+            document.getElementById('driver-destination').innerText = data.destination || 'N/A';
+            document.getElementById('driver-seats').innerText = data.seats_available || 'N/A';
+            document.getElementById('driver-rating').innerText = '★ ' + (data.rating || 'N/A');
+            document.getElementById('driver-status').innerText = data.status || 'N/A';
+
+            if (data.status === 'active') {
+                document.getElementById('btn-active').classList.add('btn-selected');
+            } else {
+                document.getElementById('btn-offroad').classList.add('btn-selected');
+            }
+
+            loadEarnings(currentDriverId);
+            loadPendingRequests(currentDriverId);
+            listenForNewRequests(currentDriverId);
+        }
+
+        async function loadPendingRequests(driverId) {
+            const { data } = await db
+                .from('ride_requests')
+                .select('*')
+                .eq('driver_id', driverId)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false });
+
+            if (!data || data.length === 0) {
+                document.getElementById('requests-card').style.display = 'none';
+                return;
+            }
+            renderRequests(data);
+        }
+
+        function renderRequests(requests) {
+            if (requests.length === 0) { document.getElementById('requests-card').style.display = 'none'; return; }
+            document.getElementById('requests-card').style.display = 'block';
+            let html = '';
+            requests.forEach(req => {
+                const time = new Date(req.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                html += `
+                    <div class="request-card" id="req-${req.request_id}">
+                        <div class="request-info">
+                            <span>From:</span> <b>${req.pickup || 'N/A'}</b><br>
+                            <span>To:</span> <b>${req.destination || 'N/A'}</b><br>
+                            <span>Fare:</span> <b style="color:#10b981;">$${(req.price || 0).toFixed(2)}</b><br>
+                            <span>Requested at:</span> <b>${time}</b>
+                        </div>
+                        <div class="request-actions">
+                            <button class="btn-accept" onclick="respondToRequest('${req.request_id}', 'accepted')">Accept</button>
+                            <button class="btn-reject" onclick="respondToRequest('${req.request_id}', 'rejected')">Reject</button>
+                        </div>
+                    </div>`;
+            });
+            document.getElementById('requests-list').innerHTML = html;
+        }
+
+        async function respondToRequest(requestId, response) {
+            const { error } = await db.from('ride_requests').update({ status: response }).eq('request_id', requestId);
+            if (error) { showStatus('Failed to respond. Try again.'); return; }
+            const card = document.getElementById('req-' + requestId);
+            if (card) card.remove();
+            if (document.querySelectorAll('.request-card').length === 0) {
+                document.getElementById('requests-card').style.display = 'none';
+            }
+            showStatus(response === 'accepted' ? 'Ride accepted!' : 'Ride declined.');
+        }
+
+        function listenForNewRequests(driverId) {
+            db.channel('driver-requests-' + driverId)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'ride_requests',
+                    filter: `driver_id=eq.${driverId}`
+                }, payload => {
+                    document.getElementById('requests-card').style.display = 'block';
+                    const req = payload.new;
+                    const time = new Date(req.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                    const html = `
+                        <div class="request-card" id="req-${req.request_id}">
+                            <div class="request-info">
+                                <span>From:</span> <b>${req.pickup || 'N/A'}</b><br>
+                                <span>To:</span> <b>${req.destination || 'N/A'}</b><br>
+                                <span>Fare:</span> <b style="color:#10b981;">$${(req.price || 0).toFixed(2)}</b><br>
+                                <span>Requested at:</span> <b>${time}</b>
+                            </div>
+                            <div class="request-actions">
+                                <button class="btn-accept" onclick="respondToRequest('${req.request_id}', 'accepted')">Accept</button>
+                                <button class="btn-reject" onclick="respondToRequest('${req.request_id}', 'rejected')">Reject</button>
+                            </div>
+                        </div>`;
+                    document.getElementById('requests-list').insertAdjacentHTML('afterbegin', html);
+                    showStatus('New ride request received!', 5000);
+                })
+                .subscribe();
+        }
+
+        async function setStatus(newStatus) {
+            if (!currentDriverId) return;
+            const { error } = await db.from('drivers').update({ status: newStatus }).eq('driver_id', currentDriverId);
+            if (error) { showStatus('Failed to update status.'); return; }
+            document.getElementById('driver-status').innerText = newStatus;
+            document.getElementById('btn-active').classList.remove('btn-selected');
+            document.getElementById('btn-offroad').classList.remove('btn-selected');
+            if (newStatus === 'active') {
+                document.getElementById('btn-active').classList.add('btn-selected');
+                showStatus('Status set to Active.');
+            } else {
+                document.getElementById('btn-offroad').classList.add('btn-selected');
+                showStatus('Status set to Off-Road.');
+            }
+        }
+
+        async function loadEarnings(driverId) {
+            const { data } = await db.from('ride_requests').select('*').eq('driver_id', driverId).eq('status', 'accepted').order('created_at', { ascending: false });
+            if (!data || data.length === 0) {
+                document.getElementById('earnings-list').innerHTML = '<div style="color:#94a3b8; font-size:14px;">No earnings yet.</div>';
+                return;
+            }
+            let total = 0;
+            let html = '';
+            data.forEach(b => {
+                const amount = b.price || 0;
+                total += amount;
+                const date = new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                html += `<div class="earning-item"><div><b>${b.pickup || 'N/A'} to ${b.destination || 'N/A'}</b><br>${date}</div><div class="amount">+$${amount.toFixed(2)}</div></div>`;
+            });
+            document.getElementById('earnings-list').innerHTML = html;
+            document.getElementById('total-earnings').innerText = '$' + total.toFixed(2);
+        }
+
+        async function logout() { await db.auth.signOut(); window.location.href = 'profile2.0.html'; }
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); }
+
+        loadDriverInfo();
+    </script>
+</body>
+</html>

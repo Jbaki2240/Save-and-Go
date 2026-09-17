@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome - Save & Go</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; padding: 0; background-color: #0f172a; color: #ffffff; font-family: 'Lexend', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .container { text-align: center; width: 90%; max-width: 800px; }
+        .logo-box { width: 100px; height: 100px; background-color: #1eb1c1; border-radius: 20px; margin: 0 auto 40px; display: flex; justify-content: center; align-items: center; }
+        h1 { font-size: 64px; font-weight: 700; margin: 0; }
+        .trust-badge { color: #94a3b8; margin: 20px 0 50px; font-size: 14px; }
+        .dot { height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .role-container { display: flex; gap: 20px; justify-content: center; }
+        .role-card { flex: 1; max-width: 250px; padding: 40px 0; background-color: #1e293b; border: 1px solid #334155; border-radius: 15px; cursor: pointer; text-transform: uppercase; font-weight: 600; color: white; text-decoration: none; transition: 0.3s; font-size: 16px; font-family: 'Lexend'; border: none; }
+        .role-card:hover { border: 1px solid #1eb1c1; background-color: #334155; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-box">
+            <svg width="40" viewBox="0 0 24 24" fill="#0f172a"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+        </div>
+        <h1><b>SAVE & GO</b></h1>
+        <div class="trust-badge"><span class="dot"></span> Trusted by thousands of commuters daily</div>
+        <div class="role-container">
+            <button class="role-card" onclick="window.location.href='signup.html?role=rider'">Rider</button>
+            <button class="role-card" onclick="window.location.href='signup.html?role=driver'">Driver</button>
+        </div>
+    </div>
+</body>
+</html>
